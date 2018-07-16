@@ -1,0 +1,131 @@
+SAMPLES = []
+for line in shell("ls", iterable=True):
+    SAMPLES.append(line)
+
+print("Hunting circRNA")
+
+
+rule all:
+    input:
+        expand('{sample}/fastqc/{sample}_1_fastqc.html', sample=SAMPLES),
+        expand('{sample}/fastqc/{sample}_2_fastqc.html', sample=SAMPLES),
+        expand('{sample}/{sample}_known_circrna.bed',sample=SAMPLES)       
+
+
+rule create_index:
+    input:
+        ref_genome='.reference/genome.fa',
+        ref_genome_dir='.reference'
+    output:
+        genome_parameters='.reference/genomeParameters.txt'
+    threads: 16
+    log:
+        ".logs/star_index.log"
+    shell:
+    #MODIFY THIS LINE
+        'export PATH="/home/iprada/bin/anaconda3/bin:$PATH" ; STAR --runThreadN {threads} --runMode genomeGenerate --outStd Log {log} --genomeDir {input.ref_genome_dir} --genomeFastaFiles {input.ref_genome}'
+
+rule fastqc:
+    input:
+        r1='{sample}/{sample}_1.fastq.gz',
+        r2='{sample}/{sample}_2.fastq.gz'
+
+    output:
+        html1='{sample}/{sample}_1_fastqc.html',
+        zip1='{sample}/{sample}_1_fastqc.zip',
+        html2='{sample}/{sample}_2_fastqc.html',
+        zip2='{sample}/{sample}_2_fastqc.zip'
+    log:
+        "{sample}/.logs/{sample}_fastqc.log"
+    shell:
+        #MODIFY THIS LINE
+        'export PATH="/home/iprada/bin/anaconda3/bin:$PATH" ; fastqc {input.r1} {input.r2} 2> {log}'
+
+rule fastqc_dir:
+    output:
+        outdir='{sample}/fastqc/'
+    shell:
+        'mdkir {output.outdir}'
+
+
+rule fastqc_to_dir:
+    input:
+        html1='{sample}/{sample}_1_fastqc.html',
+        zip1='{sample}/{sample}_1_fastqc.zip',
+        html2='{sample}/{sample}_2_fastqc.html',
+        zip2='{sample}/{sample}_2_fastqc.zip',
+        outdir='{sample}/fastqc/'
+    output:
+        html1='{sample}/fastqc/{sample}_1_fastqc.html',
+        zip1='{sample}/fastqc/{sample}_1_fastqc.zip',
+        html2='{sample}/fastqc/{sample}_2_fastqc.html',
+        zip2='{sample}/fastqc/{sample}_2_fastqc.zip'
+    shell:
+        'mv {input.html1} {input.outdir} ; mv {input.html2} {input.outdir} ; mv {input.zip1} {input.outdir} ; mv {input.zip2} {input.outdir}'
+
+        
+rule align:
+    input:
+        r1='{sample}/{sample}_1.fastq.gz',
+        r2='{sample}/{sample}_2.fastq.gz',
+        genome_parameters='.reference/genomeParameters.txt'        
+
+    output:
+        bam='{sample}/{sample}_Aligned.out.bam',
+        junctions='{sample}/{sample}_Chimeric.out.junction'
+    params:
+        substr='{sample}/{sample}_',
+        bam_output='BAM Unsorted',
+        #MODIFY THIS LINE
+        reference='/home/iprada/faststorage/projects/circrna_snakemake/working_directory/.reference/'
+
+    log:
+        "{sample}/.logs/star_alignment.log"
+    threads: 4
+    shell:
+    #MODIFY THIS LINE
+         'export PATH="/home/iprada/bin/anaconda3/bin:$PATH" ; STAR --chimSegmentMin 10 --runThreadN {threads} --outSAMtype {params.bam_output} --genomeDir {params.reference} --readFilesCommand zcat --outFileNamePrefix {params.substr} --outStd Log {log} --readFilesIn {input.r1} {input.r2}'
+
+rule star_dir:
+    output:
+        star_dir='{sample}/star_outputs'
+    shell:
+        'mdkir {output.star_dir}'
+
+rule circexplorer_parse:
+    input:
+        junctions='{sample}/{sample}_Chimeric.out.junction'
+    output:
+        parsed_junctions='{sample}/{sample}_back_spliced_junction.bed'
+    params:
+        aligner='STAR'
+    log:
+        "{sample}/.logs/circexplorer2_parse.log"
+    shell:
+        'CIRCexplorer2 parse -t {params.aligner} -b {output.parsed_junctions} {input.junctions} > {log}'
+
+rule circexplorer_annotate:
+    input:
+    #MODIFY THE FOLLOWING TWO LINES
+        ref_gene='/home/iprada/faststorage/projects/circrna_snakemake/working_directory/.reference/refGene.txt',
+        hg38='/home/iprada/faststorage/projects/circrna_snakemake/working_directory/.reference/genome.fa',
+        parsed_junctions='{sample}/{sample}_back_spliced_junction.bed'        
+    output:
+        circrna='{sample}/{sample}_known_circrna.bed'
+    log:
+        "{sample}/.logs/circexplorer2_annotate.log"
+
+    params:
+    shell:
+        'CIRCexplorer2 annotate -r {input.ref_gene} -g {input.hg38} -b {input.parsed_junctions} -o {output.circrna} > {log}'
+
+rule circ_explorer_dir:
+    output:
+        circ_dir='{sample}/circexplorer_outputs'
+    shell:
+        'mdkir {output.star_dir}'
+
+
+
+
+

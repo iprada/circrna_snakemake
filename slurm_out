@@ -1,0 +1,43 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 4
+Rules claiming more threads will be scaled down.
+Job counts:
+	count	jobs
+	1	align
+	1	all
+	1	circexplorer_annotate
+	1	circexplorer_parse
+	1	create_index
+	1	fastqc
+	1	fastqc_dir
+	1	fastqc_to_dir
+	8
+
+rule create_index:
+    input: .reference/genome.fa, .reference
+    output: .reference/genomeParameters.txt
+    log: .logs/star_index.log
+    jobid: 7
+    threads: 4
+
+Jul 16 15:37:27 ..... started STAR run
+Jul 16 15:37:27 ... starting to generate Genome files
+Jul 16 15:38:56 ... starting to sort Suffix Array. This may take a long time...
+Jul 16 15:39:19 ... sorting Suffix Array chunks and saving them to disk...
+slurmstepd: error: *** JOB 12046948 ON s03n13 CANCELLED AT 2018-07-16T15:47:28 DUE TO TIME LIMIT ***
+Will exit after finishing currently running jobs.
+    Error in rule create_index:
+        jobid: 7
+        output: .reference/genomeParameters.txt
+        log: .logs/star_index.log
+
+RuleException:
+CalledProcessError in line 26 of /faststorage/home/iprada/projects/circrna_snakemake/src/circ_rna_snakemake.snk:
+Command ' set -euo pipefail;  export PATH="/home/iprada/bin/anaconda3/bin:$PATH" ; STAR --runThreadN 4 --runMode genomeGenerate --outStd Log .logs/star_index.log --genomeDir .reference --genomeFastaFiles .reference/genome.fa ' died with <Signals.SIGTERM: 15>.
+  File "/faststorage/home/iprada/projects/circrna_snakemake/src/circ_rna_snakemake.snk", line 26, in __rule_create_index
+  File "/home/iprada/bin/miniconda3/lib/python3.6/concurrent/futures/thread.py", line 56, in run
+Will exit after finishing currently running jobs.
+Shutting down, this might take some time.
+Complete log: /faststorage/home/iprada/projects/circrna_snakemake/working_directory/.snakemake/log/2018-07-16T153727.556931.snakemake.log
+Hunting circRNA
