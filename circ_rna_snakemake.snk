@@ -1,15 +1,34 @@
+import os
+
 SAMPLES = []
 for line in shell("ls", iterable=True):
     SAMPLES.append(line)
 
-print("Hunting circRNA")
+print("Inigo's message:Hunting circRNA")
+
+print("Inigo's message:Checking if STAR tmp file or logs exist on the working directory, they will crash the pipeline")
+
+if os.path.exists("_STARtmp") == True:
+    print("Inigo's message: _STARtmp directory was present in the working directory. I have delete it to avoid a crash")
+    os.system("rm -rf _STARtmp")
+else:
+    print("Inigo's message: _STARtmp not present")
+
+if os.path.exists("Log.out") == True:
+    print("Inigo's message: Log.out file was present in the working directory. I have delete it to avoid a crash")
+    os.system("rm -rf Log.out")
+else:
+    print("Inigo's message: Log.out was not present")
+
+
+
 
 
 rule all:
     input:
         expand('{sample}/fastqc/{sample}_1_fastqc.html', sample=SAMPLES),
         expand('{sample}/fastqc/{sample}_2_fastqc.html', sample=SAMPLES),
-        expand('{sample}/{sample}_known_circrna.bed',sample=SAMPLES)       
+        expand('{sample}/{sample}_known_circrna.bed',sample=SAMPLES)
 
 
 rule create_index:
@@ -17,13 +36,15 @@ rule create_index:
         ref_genome='.reference/genome.fa',
         ref_genome_dir='.reference'
     output:
-        genome_parameters='.reference/genomeParameters.txt'
+        genome_parameters='.reference/genomeParameters.txt',
+        log_out='.logs/Log.out'
+
     threads: 16
     log:
         ".logs/star_index.log"
     shell:
     #MODIFY THIS LINE
-        'export PATH="/home/iprada/bin/anaconda3/bin:$PATH" ; STAR --runThreadN {threads} --runMode genomeGenerate --outStd Log {log} --genomeDir {input.ref_genome_dir} --genomeFastaFiles {input.ref_genome}'
+        'export PATH="/home/iprada/bin/anaconda3/bin:$PATH" ; STAR --runThreadN {threads} --runMode genomeGenerate --outStd Log {log} --genomeDir {input.ref_genome_dir} --genomeFastaFiles {input.ref_genome} > {log} 2>&1 ; mv Log.out .logs/'
 
 rule fastqc:
     input:
@@ -41,12 +62,6 @@ rule fastqc:
         #MODIFY THIS LINE
         'export PATH="/home/iprada/bin/anaconda3/bin:$PATH" ; fastqc {input.r1} {input.r2} 2> {log}'
 
-rule fastqc_dir:
-    output:
-        outdir='{sample}/fastqc/'
-    shell:
-        'mdkir {output.outdir}'
-
 
 rule fastqc_to_dir:
     input:
@@ -54,6 +69,7 @@ rule fastqc_to_dir:
         zip1='{sample}/{sample}_1_fastqc.zip',
         html2='{sample}/{sample}_2_fastqc.html',
         zip2='{sample}/{sample}_2_fastqc.zip',
+    params:
         outdir='{sample}/fastqc/'
     output:
         html1='{sample}/fastqc/{sample}_1_fastqc.html',
@@ -61,9 +77,9 @@ rule fastqc_to_dir:
         html2='{sample}/fastqc/{sample}_2_fastqc.html',
         zip2='{sample}/fastqc/{sample}_2_fastqc.zip'
     shell:
-        'mv {input.html1} {input.outdir} ; mv {input.html2} {input.outdir} ; mv {input.zip1} {input.outdir} ; mv {input.zip2} {input.outdir}'
+        'mv {input.html1} {params.outdir} ; mv {input.html2} {params.outdir} ; mv {input.zip1} {params.outdir} ; mv {input.zip2} {params.outdir}'
 
-        
+       
 rule align:
     input:
         r1='{sample}/{sample}_1.fastq.gz',
@@ -81,16 +97,10 @@ rule align:
 
     log:
         "{sample}/.logs/star_alignment.log"
-    threads: 4
     shell:
     #MODIFY THIS LINE
          'export PATH="/home/iprada/bin/anaconda3/bin:$PATH" ; STAR --chimSegmentMin 10 --runThreadN {threads} --outSAMtype {params.bam_output} --genomeDir {params.reference} --readFilesCommand zcat --outFileNamePrefix {params.substr} --outStd Log {log} --readFilesIn {input.r1} {input.r2}'
 
-rule star_dir:
-    output:
-        star_dir='{sample}/star_outputs'
-    shell:
-        'mdkir {output.star_dir}'
 
 rule circexplorer_parse:
     input:
@@ -123,9 +133,6 @@ rule circ_explorer_dir:
     output:
         circ_dir='{sample}/circexplorer_outputs'
     shell:
-        'mdkir {output.star_dir}'
-
-
-
+        'mkdir {output.star_dir}'
 
 
